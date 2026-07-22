@@ -5,6 +5,7 @@ import User from "./model/user.model.js";
 import Redis from "ioredis";
 import rateLimiter from "./middleware/rate-limit.js";  
 import sendEmail from "./lib/sendEmail.js";
+import emailQueue from "./queue.js";  // Import the emailQueue from worker.js to add jobs to the queue for sending emails asynchronously after a new user is created.
 
 dotenv.config();
 
@@ -22,7 +23,8 @@ app.post("/create-users", async (req, res) => {
         const { name, email } = req.body;
         await redis.del("user_data:all");                                // Clear the cached data in Redis when a new user is created with the key "user_data:all"
         const user = await User.create({ name, email });
-        await sendEmail();  // Call the `sendEmail()` function to simulate sending an email after a new user is created. This function will log a message to the console after a delay of 2 seconds, indicating that the email has been sent successfully.
+        // await sendEmail();  // Call the `sendEmail()` function to simulate sending an email after a new user is created. This function will log a message to the console after a delay of 2 seconds, indicating that the email has been sent successfully.
+        await emailQueue.add('sendEmail', { id: user._id, email: user.email }); // Add a job to the emailQueue to send an email asynchronously after a new user is created. The job data includes the user's ID and email address.
         res.status(200).json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
